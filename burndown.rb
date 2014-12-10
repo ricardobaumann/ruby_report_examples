@@ -10,21 +10,17 @@ ActiveRecord::Base.establish_connection(
   :password => 'redmine', 
   :database => 'redmine')
 
-class Player < ActiveRecord::Base 
-  has_many :wins
+class IssueHistory < ActiveRecord::Base 
+  self.table_name = "rb_issue_history"
+  has_one :issues
 end
 
-class Game < ActiveRecord::Base 
-  has_many :wins
+class Issue < ActiveRecord::Base 
+  belongs_to :issueHistory
 end
 
-class Play < ActiveRecord::Base 
-  belongs_to :game
-  belongs_to :player
-end
-
-class Event < ActiveRecord::Base 
-  belongs_to :play
+class Version < ActiveRecord::Base 
+  has_many :issues, :foreign_key => 'fixed_version_id'
 end
 
 def puts_underlined(text, underline_char="=")
@@ -32,17 +28,40 @@ def puts_underlined(text, underline_char="=")
   puts underline_char * text.length 
 end
 
-pic_dir='./all_players_graph_pics'
+pic_dir='./burndown_graph_pics'
 Dir.mkdir(pic_dir) unless File.exists?(pic_dir)
 
 line_chart = Gruff::Line.new(1024)
 index=0
 columns = {}
 
-Event.all.each do |e| 
-  columns[index] = e.event
-  index=index+1
+points_per_date = {}
+
+IssueHistory.all.each do |e| 
+  e.history.split(/---/).each do |h|
+    h.split(/- /).each do |i|
+      puts "\n\nNovo Item"
+      values = {}
+      i.split(/\n/).each do |f|
+        is = f.split(/: /)
+        #puts "item: #{is.first} = #{is.last == is.first ? '' : is.last}\n\n"
+        name = is.first.gsub(/:/,'').gsub(/\s/,'')
+        value = is.last == is.first ? '' : is.last.gsub(/:/,'').gsub(/\s/,'')
+        #puts "#{name} = #{value}"
+        values[name] = value
+      end
+      puts "values: #{values}"
+      points_per_date[values["date"]] ||= []
+      points_per_date[values["date"]] << values["story_points"]
+    end
+  end
+  #columns[index] = e.event
+  #index=index+1
 end
+
+puts "\n\npoints per date: #{points_per_date}"
+
+return 1
 
 line_chart.labels = columns 
 line_chart.legend_font_size = 10 
